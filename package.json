@@ -10,7 +10,8 @@
     "build": "tsc",
     "start": "ts-node src/index.ts",
     "gen": "ts-node src/index.ts",
-    "test:integration": "ts-node tests/integration.ts"
+    "test:integration": "ts-node tests/integration.ts",
+    "test:full-generation": "ts-node tests/full-generation.ts"
   },
   "keywords": [
     "nocodb",

@@ -4,3 +4,4 @@ dist
 test.env
 .DS_Store
 coverage
+testOutput/

@@ -50,8 +50,8 @@ export const getTables = async (projectId: string): Promise<Table[]> => {
 
 export const getColumns = async (tableId: string): Promise<Column[]> => {
   try {
-    const response = await api.get(`/api/v1/db/meta/tables/${tableId}/columns`);
-    return response.data.list || response.data;
+    const response = await api.get(`/api/v1/db/meta/tables/${tableId}`);
+    return response.data.columns;
   } catch (error) {
     console.error(`Error fetching columns for table ${tableId}:`, error);
     throw error;
