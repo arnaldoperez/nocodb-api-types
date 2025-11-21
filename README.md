@@ -87,6 +87,14 @@ Build the project for production/npm:
 npm run build
 ```
 
+## GitHub Actions
+
+This repository includes a GitHub Action to automatically publish to npm when you push to the `main` branch.
+
+1.  Go to your GitHub repository settings.
+2.  Navigate to **Secrets and variables** > **Actions**.
+3.  Create a new repository secret named `NPM_TOKEN` with your npm automation token.
+
 ## License
 
 ISC
