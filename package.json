@@ -1,0 +1,43 @@
+{
+  "name": "nocodb-api-types",
+  "version": "1.0.0",
+  "description": "Generate TypeScript types from NocoDB metadata",
+  "main": "dist/index.js",
+  "bin": {
+    "noco-gen": "bin/noco-gen.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/index.ts",
+    "gen": "ts-node src/index.ts",
+    "test:integration": "ts-node tests/integration.ts"
+  },
+  "keywords": [
+    "nocodb",
+    "typescript",
+    "generator",
+    "api",
+    "types"
+  ],
+  "author": "",
+  "license": "ISC",
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "prettier": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.0.0"
+  }
+}
