@@ -19,7 +19,7 @@ jobs:
 
     permissions:
       id-token: write # Allows OIDC token generation (Required for Trusted Publishing)
-      contents: read  # Allows checking out the repository
+      contents: write  # Allows checking out the repository
 
     steps:
       - name: 📦 Checkout repository
