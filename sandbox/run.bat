@@ -1,0 +1,3 @@
+@echo off
+echo Running Sandbox...
+call npx ts-node sandbox/main.ts

@@ -5,6 +5,7 @@ A lightweight utility to automatically generate TypeScript interfaces from your 
 ## Features
 
 - 🚀 **Automatic Type Generation**: Connects to your NocoDB instance and fetches all tables and columns.
+- 🔌 **Typed Axios Client**: Generates a fully typed Axios client for your project, enabling autocomplete and type safety for API calls.
 - 📦 **Type Mapping**: Intelligently maps NocoDB types (Text, Number, Boolean, etc.) to TypeScript types.
 - 🛠 **CLI Support**: Easy-to-use command line interface.
 - 🔒 **Secure**: Uses environment variables for configuration.
@@ -48,19 +49,44 @@ Then run:
 npm run generate:types
 ```
 
-This will generate a file at `src/types/noco-generated.ts` containing interfaces for all your tables.
+This will generate types and client files in the `output` directory (configurable, default is `testOutput` in development).
 
-### Example Output
+### Generated Client Usage
 
-If you have a table named `Users` with columns `Name` (Text) and `Age` (Number), the generator will produce:
+The generator creates a typed client for each of your NocoDB projects. You can import it and use it to interact with your data.
+
+**Example:**
+
+Assuming you have a project named "My Store" and a table "Products":
 
 ```typescript
-// Table: Users (users)
-export interface Users {
-  Name?: string;
-  Age?: number;
-  // ... other columns
-}
+// Import the generated client
+import { MyStoreClient } from './path/to/generated/my-store-client';
+
+// Initialize the client
+const db = new MyStoreClient({
+  baseURL: process.env.NOCODB_URL,
+  token: process.env.XC_TOKEN
+});
+
+// List records
+const products = await db.Products.list({ limit: 10 });
+console.log(products.list);
+
+// Get a single record
+const product = await db.Products.get(1);
+
+// Create a record
+await db.Products.create({
+  Name: 'New Product',
+  Price: 99.99
+});
+
+// Update a record
+await db.Products.update(1, { Price: 89.99 });
+
+// Delete a record
+await db.Products.delete(1);
 ```
 
 ## Development
@@ -87,13 +113,13 @@ Build the project for production/npm:
 npm run build
 ```
 
-## GitHub Actions
+## Support the developer
 
-This repository includes a GitHub Action to automatically publish to npm when you push to the `main` branch.
+They say developers turn coffee into code. I'm experimenting with a new runtime environment: turning beer into features! 🍺
 
-1.  Go to your GitHub repository settings.
-2.  Navigate to **Secrets and variables** > **Actions**.
-3.  Create a new repository secret named `NPM_TOKEN` with your npm automation token.
+If this tool saved you time, consider fueling the next release with a cold one:
+
+[Buy me a beer 🍺](https://buymeacoffee.com/arnaldodev)
 
 ## License
 

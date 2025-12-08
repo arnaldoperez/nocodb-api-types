@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 export const config = {
-  nocoUrl: process.env.NOCODB_URL || 'http://localhost:8080',
+  nocoUrl: (process.env.NOCODB_URL || 'http://localhost:8080').replace(/\/$/, ''),
   xcToken: process.env.XC_TOKEN || '',
 };
 

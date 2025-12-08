@@ -108,3 +108,128 @@ export const generateInterface = (table: Table, columns: Column[], interfaceName
   lines.push('}');
   return lines.join('\n');
 };
+
+export const generateClientBase = (): string => {
+  return `import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
+
+export interface NocoDBClientConfig {
+  baseURL: string;
+  token: string;
+  headers?: Record<string, string>;
+}
+
+export interface ListResponse<T> {
+  list: T[];
+  pageInfo: {
+    totalRows: number;
+    page: number;
+    pageSize: number;
+    isFirstPage: boolean;
+    isLastPage: boolean;
+  };
+}
+
+export class Api {
+  protected client: AxiosInstance;
+
+  constructor(config: NocoDBClientConfig) {
+    this.client = axios.create({
+      baseURL: config.baseURL,
+      headers: {
+        'xc-token': config.token,
+        ...config.headers,
+      },
+    });
+  }
+}
+
+export class TableClient<T> {
+  protected client: AxiosInstance;
+  protected tableName: string;
+
+  constructor(client: AxiosInstance, tableName: string) {
+    this.client = client;
+    this.tableName = tableName;
+  }
+
+  async list(params?: AxiosRequestConfig['params']): Promise<ListResponse<T>> {
+    const response = await this.client.get<{ list: T[]; pageInfo: any } | T[]>(
+      \`/api/v1/db/data/noco/\${this.tableName}\`,
+      { params }
+    );
+    if (Array.isArray(response.data)) {
+        return {
+            list: response.data,
+            pageInfo: {
+                totalRows: response.data.length,
+                page: 1,
+                pageSize: response.data.length,
+                isFirstPage: true,
+                isLastPage: true
+            }
+        };
+    }
+    return response.data as ListResponse<T>;
+  }
+
+  async get(id: string | number): Promise<T> {
+    const response = await this.client.get<T>(
+      \`/api/v1/db/data/noco/\${this.tableName}/\${id}\`
+    );
+    return response.data;
+  }
+
+  async create(data: Partial<T>): Promise<T> {
+    const response = await this.client.post<T>(
+      \`/api/v1/db/data/noco/\${this.tableName}\`,
+      data
+    );
+    return response.data;
+  }
+
+  async update(id: string | number, data: Partial<T>): Promise<T> {
+    const response = await this.client.patch<T>(
+      \`/api/v1/db/data/noco/\${this.tableName}/\${id}\`,
+      data
+    );
+    return response.data;
+  }
+
+  async delete(id: string | number): Promise<void> {
+    await this.client.delete(
+      \`/api/v1/db/data/noco/\${this.tableName}/\${id}\`
+    );
+  }
+}
+`;
+};
+
+export const generateProjectClient = (projectTitle: string, tables: { title: string; table_name: string; interfaceName: string }[]): string => {
+  const sanitizedProjectName = sanitizeClassName(projectTitle);
+  
+  const imports = tables.map(t => `import { ${t.interfaceName} } from './${sanitizeFileName(projectTitle)}';`).join('\n');
+
+  const tableProperties = tables.map(t => {
+      const propertyName = sanitizeClassName(t.title);
+      return `  public ${propertyName}: TableClient<${t.interfaceName}>;`;
+  }).join('\n');
+
+  const tableInitializations = tables.map(t => {
+      const propertyName = sanitizeClassName(t.title);
+      return `    this.${propertyName} = new TableClient(this.client, '${projectTitle}/${t.table_name}');`;
+  }).join('\n');
+
+  return `import { Api, NocoDBClientConfig, TableClient } from './client-base';
+${imports}
+
+export class ${sanitizedProjectName}Client extends Api {
+${tableProperties}
+
+  constructor(config: NocoDBClientConfig) {
+    super(config);
+${tableInitializations}
+  }
+}
+`;
+};
+

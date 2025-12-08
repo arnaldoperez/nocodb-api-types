@@ -30,6 +30,7 @@ export interface Column {
 
 export const getProjects = async (): Promise<Project[]> => {
   try {
+    console.log(`Fetching projects from: ${api.defaults.baseURL}/api/v1/db/meta/projects`);
     const response = await api.get('/api/v1/db/meta/projects');
     return response.data.list || response.data; 
   } catch (error) {
