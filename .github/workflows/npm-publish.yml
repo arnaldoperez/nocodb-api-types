@@ -23,6 +23,8 @@ jobs:
           # NOTE: registry-url is no longer required for authentication
           # but should be included if you need to use npm commands for
           # private registries/scopes, or older npm versions.
+      - name: Update npm
+        run: npm install -g npm@latest
           
       - name: ⬇️ Install dependencies
         run: npm ci
