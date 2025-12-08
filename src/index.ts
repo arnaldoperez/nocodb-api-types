@@ -3,7 +3,7 @@ import { generateInterface, sanitizeClassName, sanitizeFileName, generateClientB
 import * as fs from 'fs';
 import * as path from 'path';
 
-export const generateAllTypes = async (config: { outputDir: string } = { outputDir: path.join(process.cwd(), 'testOutput') }) => {
+export const generateAllTypes = async (config: { outputDir: string } = { outputDir: path.join(process.cwd(), 'nc-client') }) => {
   try {
     console.log('Connecting to NocoDB...');
     const projects = await getProjects();
@@ -70,5 +70,7 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
 };
 
 if (require.main === module) {
-  generateAllTypes();
+  const args = process.argv.slice(2);
+  const outputDir = args[0] || path.join(process.cwd(), 'nc-client');
+  generateAllTypes({ outputDir });
 }

@@ -15,6 +15,11 @@ jobs:
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
+        with:
+          #fetch-depth: 0
+          #token: ${{ secrets.GITHUB_TOKEN }}
+          # Explicitly check out the 'main' branch
+          ref: 'main'
         
       - name: ⚙️ Setup Node.js environment
         uses: actions/setup-node@v4
@@ -68,5 +73,5 @@ jobs:
           
           # Create and push the Git Tag
           git tag v$VERSION
-          git push origin main
+          git push origin HEAD:main
           git push --tags
