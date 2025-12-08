@@ -32,7 +32,40 @@ jobs:
       - name: 🏗️ Build package
         run: npm run build
         
+      - name: 🔄 Set up Git User
+        # This is needed for the 'npm version' command to create a commit/tag
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+
+      - name: ⬆️ Determine and Bump Version
+        id: versioning
+        run: |
+          # Use a tool like 'conventional-changelog' or simple logic based on commit history
+          # For simplicity, we'll hardcode 'patch' here for demonstration, 
+          # but you would normally check commit messages.
+          
+          # 1. Run npm version to update package.json and create the tag
+          npm version patch --no-git-tag-version 
+          
+          # 2. Extract the new version number
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
       - name: 🚀 Publish to npm
-        # The npm CLI (v11.5.1+) automatically uses the OIDC token 
-        # for authentication when run in a trusted workflow.
         run: npm publish
+        
+      - name: 💾 Commit and Push Version Tag
+        # Only run this step if the publish was successful
+        if: success()
+        run: |
+          VERSION="${{ steps.versioning.outputs.NEW_VERSION }}"
+          
+          # Commit the updated package.json
+          git add package.json
+          git commit -m "chore(release): publish v$VERSION [skip ci]"
+          
+          # Create and push the Git Tag
+          git tag v$VERSION
+          git push origin main
+          git push --tags
