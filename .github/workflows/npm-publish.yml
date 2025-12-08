@@ -1,11 +1,20 @@
-name: Node.js Package
+name: Manual Package Publish & Release
 
 on:
-  release:
-    types: [created] # Recommended trigger for stable package releases
-
+  # Allows manual triggering via the GitHub UI ('Run workflow' button)
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Type of version bump (patch, minor, or major)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
 
     permissions:
@@ -16,10 +25,8 @@ jobs:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
         with:
-          #fetch-depth: 0
-          #token: ${{ secrets.GITHUB_TOKEN }}
-          # Explicitly check out the 'main' branch
-          ref: 'main'
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
         
       - name: ⚙️ Setup Node.js environment
         uses: actions/setup-node@v4
@@ -35,11 +42,8 @@ jobs:
       - name: ⬇️ Install dependencies
         run: npm ci
         
-      - name: 🏗️ Build package
-        run: npm run build --registry=https://npm.pkg.github.com/
-        
+      # This is needed for the 'npm version' command to create a commit/tag
       - name: 🔄 Set up Git User
-        # This is needed for the 'npm version' command to create a commit/tag
         run: |
           git config user.name github-actions[bot]
           git config user.email github-actions[bot]@users.noreply.github.com
@@ -47,31 +51,62 @@ jobs:
       - name: ⬆️ Determine and Bump Version
         id: versioning
         run: |
-          # Use a tool like 'conventional-changelog' or simple logic based on commit history
-          # For simplicity, we'll hardcode 'patch' here for demonstration, 
-          # but you would normally check commit messages.
+          # The type of bump (patch, minor, major) is passed from the manual trigger input
+          BUMP_TYPE="${{ github.event.inputs.version_bump }}"
           
-          # 1. Run npm version to update package.json and create the tag
-          npm version patch --no-git-tag-version 
+          # 1. Run npm version to update package.json, create a commit, and create a tag
+          # The -m argument includes [skip ci] to prevent infinite loop re-triggers
+          npm version $BUMP_TYPE -m "chore(release): publish v%s [skip ci]"
           
-          # 2. Extract the new version number
-          NEW_VERSION=$(node -p "require('./package.json').version")
+          # 2. Extract the new version number from the created tag
+          NEW_TAG=$(git describe --tags --abbrev=0)
+          NEW_VERSION=${NEW_TAG:1} # Strip 'v' prefix
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      - name: 🏗️ Build package
+        run: npm run build --registry=https://npm.pkg.github.com/
+        
           
       - name: 🚀 Publish to npm
         run: npm publish
-        
-      - name: 💾 Commit and Push Version Tag
-        # Only run this step if the publish was successful
-        if: success()
+
+      - name: 💾 Push New Version Commit and Tag to GitHub
+        # This pushes the commit and tag created by 'npm version'
         run: |
-          VERSION="${{ steps.versioning.outputs.NEW_VERSION }}"
-          
-          # Commit the updated package.json
-          git add package.json
-          git commit -m "chore(release): publish v$VERSION [skip ci]"
-          
-          # Create and push the Git Tag
-          git tag v$VERSION
+          # Push the commit (package.json change) and the tag
+          # Assumes your primary branch is 'main'
           git push origin HEAD:main
           git push --tags
+        
+      - name: ⬆️ Determine and Bump Version
+        id: bump-version
+        run: |
+          # The type of bump (patch, minor, major) is passed from the manual trigger input
+          BUMP_TYPE="${{ github.event.inputs.version_bump }}"
+          
+          # 1. Run npm version to update package.json, create a commit, and create a tag
+          # The -m argument includes [skip ci] to prevent infinite loop re-triggers
+          npm version $BUMP_TYPE -m "chore(release): publish v%s [skip ci]"
+          
+          # 2. Extract the new version number from the created tag
+          NEW_TAG=$(git describe --tags --abbrev=0)
+          NEW_VERSION=${NEW_TAG:1} # Strip 'v' prefix
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      - name: 📝 Create GitHub Release
+        # Uses the official action to generate a clean Release UI object
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ steps.versioning.outputs.NEW_TAG }}
+          name: Release ${{ steps.versioning.outputs.NEW_TAG }}
+          body: |
+            ## 🎉 Automated Release
+            
+            This release was automatically published via the GitHub Actions workflow.
+            
+            **Version Bump Type:** ${{ github.event.inputs.version_bump }}
+          draft: false
+          prerelease: false
