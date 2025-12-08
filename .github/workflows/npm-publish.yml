@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
+          registry-url: 'https://registry.npmjs.org/'
           # NOTE: registry-url is no longer required for authentication
           # but should be included if you need to use npm commands for
           # private registries/scopes, or older npm versions.
@@ -30,7 +31,7 @@ jobs:
         run: npm ci
         
       - name: 🏗️ Build package
-        run: npm run build
+        run: npm run build --registry=https://npm.pkg.github.com/
         
       - name: 🔄 Set up Git User
         # This is needed for the 'npm version' command to create a commit/tag
