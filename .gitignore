@@ -5,3 +5,4 @@ test.env
 .DS_Store
 coverage
 testOutput/
+nc-client/

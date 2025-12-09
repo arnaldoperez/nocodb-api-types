@@ -33,8 +33,9 @@ export const getProjects = async (): Promise<Project[]> => {
     console.log(`Fetching projects from: ${api.defaults.baseURL}/api/v1/db/meta/projects`);
     const response = await api.get('/api/v1/db/meta/projects');
     return response.data.list || response.data; 
-  } catch (error) {
+  } catch (error:any) {
     console.error('Error fetching projects:', error);
+    console.error(error.code, );
     throw error;
   }
 };
