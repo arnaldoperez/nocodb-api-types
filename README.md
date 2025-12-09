@@ -32,62 +32,84 @@ XC_TOKEN=your_api_token
 ## Usage
 
 ### CLI
+ 
+ Add a script to your `package.json`:
+ 
+ ```json
+ {
+   "scripts": {
+     "nc-generate": "nc-generate"
+   }
+ }
+ ```
+ 
+ Then run:
+ 
+ ```bash
+ npm run nc-generate
+ ```
 
-Add a script to your `package.json`:
+ You can optionally specify the output directory:
 
-```json
-{
-  "scripts": {
-    "generate:types": "noco-gen"
-  }
-}
-```
+  ```bash
+  npm run nc-generate -- ./my-client-folder
+  ```
+ 
+ This will generate types and client files in the `nc-client` directory by default, or the directory you specified.
+ 
+ ### Generated Client Usage
+ 
+ The generator creates a typed client for each of your NocoDB bases. You can import it and use it to interact with your data.
+ 
+ **Backend Usage (with XC-Token):**
+ 
+ Assuming you have a base named "My Store":
+ 
+ ```typescript
+ // Import the generated client
+ import { MyStoreClient } from './nc-client/my-store-client';
+ 
+ // Initialize the client with XC-Token (for backend)
+ const db = new MyStoreClient({
+   baseURL: process.env.NOCODB_URL,
+   xcToken: process.env.XC_TOKEN
+ });
+ ```
 
-Then run:
+ **Frontend Usage (with XC-Auth):**
 
-```bash
-npm run generate:types
-```
+ If you are using the client in a frontend application where you have a user's auth token:
 
-This will generate types and client files in the `output` directory (configurable, default is `testOutput` in development).
+ ```typescript
+  // Initialize the client with XC-Auth (for frontend)
+ const db = new MyStoreClient({
+   baseURL: process.env.NOCODB_URL,
+   xcAuth: 'user_auth_token_here' 
+ });
+ ```
 
-### Generated Client Usage
+ **Data Operations:**
 
-The generator creates a typed client for each of your NocoDB projects. You can import it and use it to interact with your data.
-
-**Example:**
-
-Assuming you have a project named "My Store" and a table "Products":
-
-```typescript
-// Import the generated client
-import { MyStoreClient } from './path/to/generated/my-store-client';
-
-// Initialize the client
-const db = new MyStoreClient({
-  baseURL: process.env.NOCODB_URL,
-  token: process.env.XC_TOKEN
-});
-
-// List records
-const products = await db.Products.list({ limit: 10 });
-console.log(products.list);
-
-// Get a single record
-const product = await db.Products.get(1);
-
-// Create a record
-await db.Products.create({
-  Name: 'New Product',
-  Price: 99.99
-});
-
-// Update a record
-await db.Products.update(1, { Price: 89.99 });
-
-// Delete a record
-await db.Products.delete(1);
-```
+ ```typescript
+ // List records
+ const products = await db.Products.list({ limit: 10 });
+ console.log(products.list);
+ 
+ // Get a single record
+ const product = await db.Products.get(1);
+ 
+ // Create a record
+ await db.Products.create({
+   Name: 'New Product',
+   Price: 99.99
+ });
+ 
+ // Update a record
+ await db.Products.update(1, { Price: 89.99 });
+ 
+ // Delete a record
+ await db.Products.delete(1);
+ ```
 
 ## Development
 
