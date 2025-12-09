@@ -114,7 +114,9 @@ export const generateClientBase = (): string => {
 
 export interface NocoDBClientConfig {
   baseURL: string;
-  token: string;
+  token?: string; // Deprecated: use xcToken or xcAuth
+  xcToken?: string;
+  xcAuth?: string;
   headers?: Record<string, string>;
 }
 
@@ -133,12 +135,17 @@ export class Api {
   protected client: AxiosInstance;
 
   constructor(config: NocoDBClientConfig) {
+    const headers: Record<string, string> = { ...config.headers };
+    if (config.token) headers['xc-token'] = config.token;
+    if (config.xcToken) headers['xc-token'] = config.xcToken;
+    if (config.xcAuth) {
+        headers['xc-auth'] = config.xcAuth;
+        headers['xc-gui'] = 'true';
+    }
+
     this.client = axios.create({
       baseURL: config.baseURL,
-      headers: {
-        'xc-token': config.token,
-        ...config.headers,
-      },
+      headers,
     });
   }
 }
