@@ -1,16 +1,15 @@
 {
   "name": "nocodb-api-types",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Generate TypeScript types from NocoDB metadata",
   "main": "dist/index.js",
   "bin": {
     "nc-generate": "bin/noco-gen.js"
   },
-  
   "scripts": {
     "build": "tsc",
     "start": "ts-node src/index.ts",
-    "nc-generate": "ts-node src/index.ts",    
+    "nc-generate": "ts-node src/index.ts",
     "sandbox": "ts-node sandbox/main.ts",
     "test:integration": "ts-node tests/integration.ts",
     "test:full-generation": "ts-node tests/full-generation.ts"
