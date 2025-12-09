@@ -152,16 +152,16 @@ export class Api {
 
 export class TableClient<T> {
   protected client: AxiosInstance;
-  protected tableName: string;
+  protected tableId: string;
 
-  constructor(client: AxiosInstance, tableName: string) {
+  constructor(client: AxiosInstance, tableId: string) {
     this.client = client;
-    this.tableName = tableName;
+    this.tableId = tableId;
   }
 
   async list(params?: AxiosRequestConfig['params']): Promise<ListResponse<T>> {
     const response = await this.client.get<{ list: T[]; pageInfo: any } | T[]>(
-      \`/api/v1/db/data/noco/\${this.tableName}\`,
+      \`/api/v2/tables/\${this.tableId}/records\`,
       { params }
     );
     if (Array.isArray(response.data)) {
@@ -181,14 +181,14 @@ export class TableClient<T> {
 
   async get(id: string | number): Promise<T> {
     const response = await this.client.get<T>(
-      \`/api/v1/db/data/noco/\${this.tableName}/\${id}\`
+      \`/api/v2/tables/\${this.tableId}/records/\${id}\`
     );
     return response.data;
   }
 
   async create(data: Partial<T>): Promise<T> {
     const response = await this.client.post<T>(
-      \`/api/v1/db/data/noco/\${this.tableName}\`,
+      \`/api/v2/tables/\${this.tableId}/records\`,
       data
     );
     return response.data;
@@ -196,7 +196,7 @@ export class TableClient<T> {
 
   async update(id: string | number, data: Partial<T>): Promise<T> {
     const response = await this.client.patch<T>(
-      \`/api/v1/db/data/noco/\${this.tableName}/\${id}\`,
+      \`/api/v2/tables/\${this.tableId}/records/\${id}\`,
       data
     );
     return response.data;
@@ -204,14 +204,14 @@ export class TableClient<T> {
 
   async delete(id: string | number): Promise<void> {
     await this.client.delete(
-      \`/api/v1/db/data/noco/\${this.tableName}/\${id}\`
+      \`/api/v2/tables/\${this.tableId}/records/\${id}\`
     );
   }
 }
 `;
 };
 
-export const generateProjectClient = (projectTitle: string, tables: { title: string; table_name: string; interfaceName: string }[]): string => {
+export const generateProjectClient = (projectTitle: string, tables: { title: string; table_name: string; id: string; interfaceName: string }[]): string => {
   const sanitizedProjectName = sanitizeClassName(projectTitle);
   
   const imports = tables.map(t => `import { ${t.interfaceName} } from './${sanitizeFileName(projectTitle)}';`).join('\n');
@@ -223,7 +223,7 @@ export const generateProjectClient = (projectTitle: string, tables: { title: str
 
   const tableInitializations = tables.map(t => {
       const propertyName = sanitizeClassName(t.title);
-      return `    this.${propertyName} = new TableClient(this.client, '${projectTitle}/${t.table_name}');`;
+      return `    this.${propertyName} = new TableClient(this.client, '${t.id}');`;
   }).join('\n');
 
   return `import { Api, NocoDBClientConfig, TableClient } from './client-base';

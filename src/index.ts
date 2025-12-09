@@ -25,7 +25,7 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
       const usedInterfaceNames = new Map<string, number>();
       
       const tables = await getTables(project.id);
-      const projectTables: { title: string; table_name: string; interfaceName: string }[] = [];
+      const projectTables: { title: string; table_name: string; id: string; interfaceName: string }[] = [];
       
       for (const table of tables) {
         console.log(`  Processing table: ${table.title}`);
@@ -47,6 +47,7 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
         projectTables.push({
             title: table.title,
             table_name: table.table_name,
+            id: table.id,
             interfaceName
         });
       }

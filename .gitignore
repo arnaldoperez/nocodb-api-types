@@ -6,3 +6,6 @@ test.env
 coverage
 testOutput/
 nc-client/
+sandbox/*
+!sandbox/sample.ts
+!sandbox/run.bat

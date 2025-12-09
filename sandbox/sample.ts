@@ -1,7 +1,8 @@
 /**
  * Sandbox Test Environment
  * 
- * This file serves as a playground to test the generated NocoDB client.
+ * This is a sample file that serves as a playground to test the generated NocoDB client.
+ * To beging, copy this file to a new one with the name 'main.ts' and modify it to suit your needs.
  * 
  * Instructions:
  * 1. Generate your client using `npm run gen` (or `npm run test:full-generation` for dev).
