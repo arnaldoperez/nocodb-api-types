@@ -1,6 +1,6 @@
 {
   "name": "nocodb-api-types",
-  "version": "1.0.5",
+  "version": "1.1.0",
   "description": "Generate TypeScript types from NocoDB metadata",
   "main": "dist/index.js",
   "bin": {
