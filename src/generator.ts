@@ -7,8 +7,8 @@ export const mapNocoTypeToTsType = (column: Column): string => {
     case 'Email':
     case 'URL':
     case 'PhoneNumber':
-    case 'SingleSelect': 
-    case 'MultiSelect': 
+    case 'SingleSelect':
+    case 'MultiSelect':
       return 'string';
     case 'Number':
     case 'Decimal':
@@ -25,13 +25,13 @@ export const mapNocoTypeToTsType = (column: Column): string => {
     case 'DateTime':
     case 'CreatedTime':
     case 'LastModifiedTime':
-      return 'string'; 
+      return 'string';
     case 'JSON':
-    case 'Attachment': 
-    case 'LinkToAnotherRecord': 
-    case 'Lookup': 
-    case 'Rollup': 
-    case 'Formula': 
+    case 'Attachment':
+    case 'LinkToAnotherRecord':
+    case 'Lookup':
+    case 'Rollup':
+    case 'Formula':
       return 'any';
     default:
       return 'any';
@@ -81,13 +81,13 @@ const sanitizeKey = (name: string): string => {
 export const generateInterface = (table: Table, columns: Column[], interfaceName?: string): string => {
   const finalInterfaceName = interfaceName || sanitizeClassName(table.table_name);
   const lines = [`export interface ${finalInterfaceName} {`];
-  
+
   const usedKeys = new Map<string, number>();
 
   for (const col of columns) {
     const tsType = mapNocoTypeToTsType(col);
     let key = sanitizeKey(col.column_name);
-    
+
     // Handle duplicates
     if (usedKeys.has(key)) {
       const count = usedKeys.get(key)! + 1;
@@ -131,6 +131,37 @@ export interface ListResponse<T> {
   };
 }
 
+export interface ListRecordParams {
+    /**
+     * Allows you to specify the fields that you wish to include in your API response. 
+     * By default, all the fields are included in the response.
+     * Example: fields=field1,field2
+     */
+    fields?: string;
+    /**
+     * Allows you to specify the fields by which you want to sort the records in your API response.
+     * Example: sort=field1,-field2
+     */
+    sort?: string;
+    /**
+     * Enables you to define specific conditions for filtering records in your API response.
+     * Example: where=(field1,eq,value1)~and(field2,eq,value2)
+     */
+    where?: string;
+    /**
+     * Enables you to control the pagination of your API response by specifying the number of records you want to skip.
+     */
+    offset?: number;
+    /**
+     * Enables you to set a limit on the number of records you want to retrieve in your API response.
+     */
+    limit?: number;
+    /**
+     * View Identifier. Allows you to fetch records that are currently visible within a specific view.
+     */
+    viewId?: string;
+}
+
 export class Api {
   protected client: AxiosInstance;
 
@@ -140,7 +171,6 @@ export class Api {
     if (config.xcToken) headers['xc-token'] = config.xcToken;
     if (config.xcAuth) {
         headers['xc-auth'] = config.xcAuth;
-        headers['xc-gui'] = 'true';
     }
 
     this.client = axios.create({
@@ -159,7 +189,7 @@ export class TableClient<T> {
     this.tableId = tableId;
   }
 
-  async list(params?: AxiosRequestConfig['params']): Promise<ListResponse<T>> {
+  async list(params?: ListRecordParams): Promise<ListResponse<T>> {
     const response = await this.client.get<{ list: T[]; pageInfo: any } | T[]>(
       \`/api/v2/tables/\${this.tableId}/records\`,
       { params }
@@ -196,15 +226,21 @@ export class TableClient<T> {
 
   async update(id: string | number, data: Partial<T>): Promise<T> {
     const response = await this.client.patch<T>(
-      \`/api/v2/tables/\${this.tableId}/records/\${id}\`,
-      data
+      \`/api/v2/tables/\${this.tableId}/records\`,
+      {
+          Id: id,
+          ...data
+      }
     );
     return response.data;
   }
 
   async delete(id: string | number): Promise<void> {
     await this.client.delete(
-      \`/api/v2/tables/\${this.tableId}/records/\${id}\`
+      \`/api/v2/tables/\${this.tableId}/records\`,
+      {
+        data: [ { Id: id } ]
+      }
     );
   }
 }
@@ -213,17 +249,17 @@ export class TableClient<T> {
 
 export const generateProjectClient = (projectTitle: string, tables: { title: string; table_name: string; id: string; interfaceName: string }[]): string => {
   const sanitizedProjectName = sanitizeClassName(projectTitle);
-  
+
   const imports = tables.map(t => `import { ${t.interfaceName} } from './${sanitizeFileName(projectTitle)}';`).join('\n');
 
   const tableProperties = tables.map(t => {
-      const propertyName = sanitizeClassName(t.title);
-      return `  public ${propertyName}: TableClient<${t.interfaceName}>;`;
+    const propertyName = sanitizeClassName(t.title);
+    return `  public ${propertyName}: TableClient<${t.interfaceName}>;`;
   }).join('\n');
 
   const tableInitializations = tables.map(t => {
-      const propertyName = sanitizeClassName(t.title);
-      return `    this.${propertyName} = new TableClient(this.client, '${t.id}');`;
+    const propertyName = sanitizeClassName(t.title);
+    return `    this.${propertyName} = new TableClient(this.client, '${t.id}');`;
   }).join('\n');
 
   return `import { Api, NocoDBClientConfig, TableClient } from './client-base';
