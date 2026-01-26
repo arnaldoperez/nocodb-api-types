@@ -1,6 +1,6 @@
 import { Column, Table } from './api';
 
-export const mapNocoTypeToTsType = (column: Column): string => {
+export const mapNocoTypeToTsType = (column: Column, tableInterfaceMap?: Map<string, string>): string => {
   switch (column.uidt) {
     case 'SingleLineText':
     case 'LongText':
@@ -28,7 +28,12 @@ export const mapNocoTypeToTsType = (column: Column): string => {
       return 'string';
     case 'JSON':
     case 'Attachment':
+      return 'any[]';
     case 'LinkToAnotherRecord':
+      if (tableInterfaceMap && column.colOptions?.fk_related_model_id && tableInterfaceMap.has(column.colOptions.fk_related_model_id)) {
+        return `${tableInterfaceMap.get(column.colOptions.fk_related_model_id)}[]`;
+      }
+      return 'any[]';
     case 'Lookup':
     case 'Rollup':
     case 'Formula':
@@ -78,15 +83,15 @@ const sanitizeKey = (name: string): string => {
   return `'${name}'`;
 };
 
-export const generateInterface = (table: Table, columns: Column[], interfaceName?: string): string => {
+export const generateInterface = (table: Table, columns: Column[], interfaceName?: string, tableInterfaceMap?: Map<string, string>): string => {
   const finalInterfaceName = interfaceName || sanitizeClassName(table.table_name);
   const lines = [`export interface ${finalInterfaceName} {`];
 
   const usedKeys = new Map<string, number>();
 
   for (const col of columns) {
-    const tsType = mapNocoTypeToTsType(col);
-    let key = sanitizeKey(col.column_name);
+    const tsType = mapNocoTypeToTsType(col, tableInterfaceMap);
+    let key = sanitizeKey(col.column_name || col.title);
 
     // Handle duplicates
     if (usedKeys.has(key)) {
@@ -160,6 +165,10 @@ export interface ListRecordParams {
      * View Identifier. Allows you to fetch records that are currently visible within a specific view.
      */
     viewId?: string;
+    /**
+     * Nested relations to fetch
+     */
+    nested?: any;
 }
 
 export class Api {

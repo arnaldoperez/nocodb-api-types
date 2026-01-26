@@ -25,17 +25,20 @@ export interface Column {
   column_name: string;
   uidt: string; // User Interface Data Type (e.g., 'SingleLineText', 'Number')
   dt: string; // Data Type (e.g., 'varchar', 'int')
-  // Add other relevant fields as needed
+  colOptions?: {
+    fk_related_model_id?: string;
+    // Add other options as needed
+  };
 }
 
 export const getProjects = async (): Promise<Project[]> => {
   try {
     console.log(`Fetching projects from: ${api.defaults.baseURL}/api/v1/db/meta/projects`);
     const response = await api.get('/api/v1/db/meta/projects');
-    return response.data.list || response.data; 
-  } catch (error:any) {
+    return response.data.list || response.data;
+  } catch (error: any) {
     console.error('Error fetching projects:', error);
-    console.error(error.code, );
+    console.error(error.code,);
     throw error;
   }
 };

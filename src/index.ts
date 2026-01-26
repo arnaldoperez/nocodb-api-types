@@ -22,15 +22,13 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
     for (const project of projects) {
       console.log(`Processing project: ${project.title}`);
       let projectTypes = '';
-      const usedInterfaceNames = new Map<string, number>();
-      
+
       const tables = await getTables(project.id);
-      const projectTables: { title: string; table_name: string; id: string; interfaceName: string }[] = [];
-      
+      const tableInterfaceMap = new Map<string, string>();
+      const usedInterfaceNames = new Map<string, number>();
+
+      // 1. Pre-calculate interface names
       for (const table of tables) {
-        console.log(`  Processing table: ${table.title}`);
-        const columns = await getColumns(table.id);
-        
         let interfaceName = sanitizeClassName(table.table_name);
         if (usedInterfaceNames.has(interfaceName)) {
           const count = usedInterfaceNames.get(interfaceName)! + 1;
@@ -39,16 +37,26 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
         } else {
           usedInterfaceNames.set(interfaceName, 1);
         }
+        tableInterfaceMap.set(table.id, interfaceName);
+      }
 
-        const interfaceDef = generateInterface(table, columns, interfaceName);
+      const projectTables: { title: string; table_name: string; id: string; interfaceName: string }[] = [];
+
+      // 2. Generate types
+      for (const table of tables) {
+        console.log(`  Processing table: ${table.title}`);
+        const columns = await getColumns(table.id);
+        const interfaceName = tableInterfaceMap.get(table.id)!;
+
+        const interfaceDef = generateInterface(table, columns, interfaceName, tableInterfaceMap);
         projectTypes += `// Table: ${table.title} (${table.table_name})\n`;
         projectTypes += interfaceDef + '\n\n';
 
         projectTables.push({
-            title: table.title,
-            table_name: table.table_name,
-            id: table.id,
-            interfaceName
+          title: table.title,
+          table_name: table.table_name,
+          id: table.id,
+          interfaceName
         });
       }
 
