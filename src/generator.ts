@@ -171,6 +171,25 @@ export interface ListRecordParams {
     nested?: any;
 }
 
+export interface ListLinkedRecordParams {
+    /**
+     * Allows you to specify the fields that you wish to include from the linked records in your API response. 
+     * By default, only Primary Key and associated display value field is included.
+     * Example: fields=field1,field2
+     */
+    fields?: string;
+    /**
+     * Allows you to specify the fields by which you want to sort linked records in your API response.
+     * Example: sort=field1,-field2
+     */
+    sort?: string;
+    /**
+     * Enables you to define specific conditions for filtering linked records in your API response.
+     * Example: where=(field1,eq,value1)~and(field2,eq,value2)
+     */
+    where?: string;
+}
+
 export class Api {
   protected client: AxiosInstance;
 
@@ -251,6 +270,14 @@ export class TableClient<T> {
         data: [ { Id: id } ]
       }
     );
+  }
+
+  async listLinkedRecords(recordId: string | number, linkFieldId: string, params?: ListLinkedRecordParams): Promise<any[]> {
+    const response = await this.client.get<any[]>(
+        \`/api/v2/tables/\${this.tableId}/links/\${linkFieldId}/records/\${recordId}\`,
+        { params }
+    );
+    return response.data;
   }
 }
 `;
