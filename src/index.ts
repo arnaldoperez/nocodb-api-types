@@ -1,5 +1,5 @@
 import { getProjects, getTables, getColumns } from './api';
-import { generateInterface, sanitizeClassName, sanitizeFileName, generateClientBase, generateProjectClient } from './generator';
+import { generateInterface, sanitizeClassName, sanitizeFileName, generateClientBase, generateProjectClient, generateLinkedFieldsEnum } from './generator';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -40,7 +40,7 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
         tableInterfaceMap.set(table.id, interfaceName);
       }
 
-      const projectTables: { title: string; table_name: string; id: string; interfaceName: string }[] = [];
+      const projectTables: { title: string; table_name: string; id: string; interfaceName: string; hasLinkedFieldsEnum?: boolean }[] = [];
 
       // 2. Generate types
       for (const table of tables) {
@@ -52,11 +52,19 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
         projectTypes += `// Table: ${table.title} (${table.table_name})\n`;
         projectTypes += interfaceDef + '\n\n';
 
+        const enumDef = generateLinkedFieldsEnum(table, columns, interfaceName);
+        let hasLinkedFieldsEnum = false;
+        if (enumDef) {
+          projectTypes += enumDef + '\n\n';
+          hasLinkedFieldsEnum = true;
+        }
+
         projectTables.push({
           title: table.title,
           table_name: table.table_name,
           id: table.id,
-          interfaceName
+          interfaceName,
+          hasLinkedFieldsEnum
         });
       }
 

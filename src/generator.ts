@@ -114,6 +114,45 @@ export const generateInterface = (table: Table, columns: Column[], interfaceName
   return lines.join('\n');
 };
 
+export const generateLinkedFieldsEnum = (table: Table, columns: Column[], interfaceName?: string): string => {
+  const finalInterfaceName = interfaceName || sanitizeClassName(table.table_name);
+  const enumName = `${finalInterfaceName}LinkedFields`;
+
+  const linkedColumns = columns.filter(c => c.uidt === 'LinkToAnotherRecord');
+  if (linkedColumns.length === 0) return '';
+
+  const lines = [`export enum ${enumName} {`];
+  const usedKeys = new Map<string, number>();
+
+  for (const col of linkedColumns) {
+    let key = sanitizeKey(col.title || col.column_name);
+    // Remove quotes if present for enum keys unless necessary (but sanitizeKey adds quotes if invalid identifier)
+    // Actually enum keys must be valid identifiers.
+    // Let's assume sanitizeClassName-ish strategy for keys if strictly needed, 
+    // but user probably wants readable names. 
+    // `sanitizeKey` might return "'My Field'". Enum key cannot be quoted string literal in TS? 
+    // Wait, TS Enum keys must be identifiers. String values can be anything.
+    // So we need a sanitizeEnumKey.
+
+    // For now, let's blindly use sanitizeClassName logic for keys to be safe identifiers
+    // and use col.id as value.
+    let enumKey = sanitizeClassName(col.title || col.column_name);
+
+    if (usedKeys.has(enumKey)) {
+      const count = usedKeys.get(enumKey)! + 1;
+      usedKeys.set(enumKey, count);
+      enumKey = `${enumKey}_${count}`;
+    } else {
+      usedKeys.set(enumKey, 1);
+    }
+
+    lines.push(`  ${enumKey} = '${col.id}',`);
+  }
+
+  lines.push('}');
+  return lines.join('\n');
+};
+
 export const generateClientBase = (): string => {
   return `import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
@@ -208,7 +247,7 @@ export class Api {
   }
 }
 
-export class TableClient<T> {
+export class TableClient<T, L = string> {
   protected client: AxiosInstance;
   protected tableId: string;
 
@@ -272,9 +311,9 @@ export class TableClient<T> {
     );
   }
 
-  async listLinkedRecords(recordId: string | number, linkFieldId: string, params?: ListLinkedRecordParams): Promise<any[]> {
+  async listLinkedRecords(recordId: string | number, linkFieldId: L, params?: ListLinkedRecordParams): Promise<any[]> {
     const response = await this.client.get<any[]>(
-        \`/api/v2/tables/\${this.tableId}/links/\${linkFieldId}/records/\${recordId}\`,
+        \`/api/v2/tables/\${this.tableId}/links/\${linkFieldId as any}/records/\${recordId}\`,
         { params }
     );
     return response.data;
@@ -283,13 +322,21 @@ export class TableClient<T> {
 `;
 };
 
-export const generateProjectClient = (projectTitle: string, tables: { title: string; table_name: string; id: string; interfaceName: string }[]): string => {
+export const generateProjectClient = (projectTitle: string, tables: { title: string; table_name: string; id: string; interfaceName: string; hasLinkedFieldsEnum?: boolean }[]): string => {
   const sanitizedProjectName = sanitizeClassName(projectTitle);
 
-  const imports = tables.map(t => `import { ${t.interfaceName} } from './${sanitizeFileName(projectTitle)}';`).join('\n');
+  const imports = tables.map(t => {
+    if (t.hasLinkedFieldsEnum) {
+      return `import { ${t.interfaceName}, ${t.interfaceName}LinkedFields } from './${sanitizeFileName(projectTitle)}';`;
+    }
+    return `import { ${t.interfaceName} } from './${sanitizeFileName(projectTitle)}';`;
+  }).join('\n');
 
   const tableProperties = tables.map(t => {
     const propertyName = sanitizeClassName(t.title);
+    if (t.hasLinkedFieldsEnum) {
+      return `  public ${propertyName}: TableClient<${t.interfaceName}, ${t.interfaceName}LinkedFields>;`;
+    }
     return `  public ${propertyName}: TableClient<${t.interfaceName}>;`;
   }).join('\n');
 
