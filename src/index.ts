@@ -70,7 +70,8 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
 
       const fileName = `${sanitizeFileName(project.title)}.ts`;
       const outputPath = path.join(outputDir, fileName);
-      fs.writeFileSync(outputPath, projectTypes);
+      const contentWithImport = `import { Attachment } from './client-base';\n\n${projectTypes}`;
+      fs.writeFileSync(outputPath, contentWithImport);
       console.log(`Types generated for project "${project.title}" at: ${outputPath}`);
 
       // Generate Project Client

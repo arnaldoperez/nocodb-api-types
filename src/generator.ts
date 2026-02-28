@@ -27,8 +27,9 @@ export const mapNocoTypeToTsType = (column: Column, tableInterfaceMap?: Map<stri
     case 'LastModifiedTime':
       return 'string';
     case 'JSON':
-    case 'Attachment':
       return 'any[]';
+    case 'Attachment':
+      return 'Attachment[]';
     case 'LinkToAnotherRecord':
       if (tableInterfaceMap && column.colOptions?.fk_related_model_id && tableInterfaceMap.has(column.colOptions.fk_related_model_id)) {
         return `${tableInterfaceMap.get(column.colOptions.fk_related_model_id)}[]`;
@@ -162,6 +163,16 @@ export interface NocoDBClientConfig {
   xcToken?: string;
   xcAuth?: string;
   headers?: Record<string, string>;
+}
+
+export interface Attachment {
+  path?: string;
+  title?: string;
+  mimetype?: string;
+  size?: number;
+  url?: string;
+  signedPath?: string;
+  signedUrl?: string;
 }
 
 export interface ListResponse<T> {
