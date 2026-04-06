@@ -12,7 +12,7 @@ if (result.error) {
 }
 
 // Now import the API client
-import { getProjects } from '../src/api';
+import { getWorkspaces, getProjects, getTables, getColumns } from '../src/api';
 import { config } from '../src/config';
 
 const runIntegrationTest = async () => {
@@ -27,11 +27,52 @@ const runIntegrationTest = async () => {
   }
 
   try {
-    console.log('Attempting to fetch projects...');
-    const projects = await getProjects();
-    console.log(`Successfully fetched ${projects.length} projects.`);
+    // Step 1: Fetch workspaces
+    console.log('\n--- Step 1: Fetching workspaces ---');
+    const workspaces = await getWorkspaces();
+    console.log(`Successfully fetched ${workspaces.length} workspace(s).`);
+    if (workspaces.length > 0) {
+      console.log(`  First workspace: "${workspaces[0].title}" (${workspaces[0].id})`);
+    }
+
+    // Step 2: Fetch bases (projects) from the first workspace
+    if (workspaces.length > 0) {
+      console.log('\n--- Step 2: Fetching bases ---');
+      const projects = await getProjects(workspaces[0].id);
+      console.log(`Successfully fetched ${projects.length} base(s).`);
+      for (const p of projects) {
+        console.log(`  Base: "${p.title}" (${p.id})`);
+      }
+
+      // Step 3: Fetch tables from the first base
+      if (projects.length > 0) {
+        console.log('\n--- Step 3: Fetching tables ---');
+        const tables = await getTables(projects[0].id);
+        console.log(`Successfully fetched ${tables.length} table(s) from base "${projects[0].title}".`);
+        for (const t of tables) {
+          console.log(`  Table: "${t.title}" (${t.id})`);
+        }
+
+        // Step 4: Fetch columns from the first table
+        if (tables.length > 0) {
+          console.log('\n--- Step 4: Fetching fields ---');
+          const columns = await getColumns(tables[0].id, projects[0].id);
+          console.log(`Successfully fetched ${columns.length} field(s) from table "${tables[0].title}".`);
+          for (const c of columns) {
+            console.log(`  Field: "${c.title}" (type: ${c.type || c.uidt || 'unknown'})`);
+          }
+        }
+      }
+    }
+
+    // Step 5: Test backward-compatible getProjects() without workspaceId
+    console.log('\n--- Step 5: Testing backward-compatible getProjects() ---');
+    const autoProjects = await getProjects();
+    console.log(`Backward-compatible call fetched ${autoProjects.length} base(s).`);
+
+    console.log('\n✅ All integration tests passed!');
   } catch (error: any) {
-    console.error('API call failed (expected if token is invalid):', error.message);
+    console.error('API call failed:', error.message);
   }
 };
 

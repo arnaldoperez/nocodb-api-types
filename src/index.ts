@@ -1,13 +1,25 @@
-import { getProjects, getTables, getColumns } from './api';
+import { getWorkspaces, getProjects, getTables, getColumns } from './api';
 import { generateInterface, sanitizeClassName, sanitizeFileName, generateClientBase, generateProjectClient, generateLinkedFieldsEnum } from './generator';
 import * as fs from 'fs';
 import * as path from 'path';
 
-export const generateAllTypes = async (config: { outputDir: string } = { outputDir: path.join(process.cwd(), 'nc-client') }) => {
+export const generateAllTypes = async (config: { outputDir: string; workspaceId?: string } = { outputDir: path.join(process.cwd(), 'nc-client') }) => {
   try {
     console.log('Connecting to NocoDB...');
-    const projects = await getProjects();
-    console.log(`Found ${projects.length} projects.`);
+
+    // Resolve workspace — use provided ID or default to the first one
+    let workspaceId = config.workspaceId;
+    if (!workspaceId) {
+      const workspaces = await getWorkspaces();
+      if (workspaces.length === 0) {
+        throw new Error('No workspaces found.');
+      }
+      workspaceId = workspaces[0].id;
+      console.log(`Using default workspace: "${workspaces[0].title}" (${workspaceId})`);
+    }
+
+    const projects = await getProjects(workspaceId);
+    console.log(`Found ${projects.length} bases in workspace.`);
 
     const { outputDir } = config;
     if (!fs.existsSync(outputDir)) {
@@ -20,7 +32,7 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
     console.log(`Client base generated at: ${path.join(outputDir, 'client-base.ts')}`);
 
     for (const project of projects) {
-      console.log(`Processing project: ${project.title}`);
+      console.log(`Processing base: ${project.title}`);
       let projectTypes = '';
 
       const tables = await getTables(project.id);
@@ -29,7 +41,9 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
 
       // 1. Pre-calculate interface names
       for (const table of tables) {
-        let interfaceName = sanitizeClassName(table.table_name);
+        // v3 uses 'title' as the primary name, 'table_name' may not exist
+        const tableName = table.table_name || table.title;
+        let interfaceName = sanitizeClassName(tableName);
         if (usedInterfaceNames.has(interfaceName)) {
           const count = usedInterfaceNames.get(interfaceName)! + 1;
           usedInterfaceNames.set(interfaceName, count);
@@ -45,11 +59,12 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
       // 2. Generate types
       for (const table of tables) {
         console.log(`  Processing table: ${table.title}`);
-        const columns = await getColumns(table.id);
+        const columns = await getColumns(table.id, project.id);
         const interfaceName = tableInterfaceMap.get(table.id)!;
 
         const interfaceDef = generateInterface(table, columns, interfaceName, tableInterfaceMap);
-        projectTypes += `// Table: ${table.title} (${table.table_name})\n`;
+        const tableName = table.table_name || table.title;
+        projectTypes += `// Table: ${table.title} (${tableName})\n`;
         projectTypes += interfaceDef + '\n\n';
 
         const enumDef = generateLinkedFieldsEnum(table, columns, interfaceName);
@@ -61,7 +76,7 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
 
         projectTables.push({
           title: table.title,
-          table_name: table.table_name,
+          table_name: tableName,
           id: table.id,
           interfaceName,
           hasLinkedFieldsEnum
@@ -72,13 +87,13 @@ export const generateAllTypes = async (config: { outputDir: string } = { outputD
       const outputPath = path.join(outputDir, fileName);
       const contentWithImport = `import { Attachment } from './client-base';\n\n${projectTypes}`;
       fs.writeFileSync(outputPath, contentWithImport);
-      console.log(`Types generated for project "${project.title}" at: ${outputPath}`);
+      console.log(`Types generated for base "${project.title}" at: ${outputPath}`);
 
       // Generate Project Client
-      const projectClient = generateProjectClient(project.title, projectTables);
+      const projectClient = generateProjectClient(project.title, project.id, projectTables);
       const clientFileName = `${sanitizeFileName(project.title)}-client.ts`;
       fs.writeFileSync(path.join(outputDir, clientFileName), projectClient);
-      console.log(`Client generated for project "${project.title}" at: ${path.join(outputDir, clientFileName)}`);
+      console.log(`Client generated for base "${project.title}" at: ${path.join(outputDir, clientFileName)}`);
     }
 
   } catch (error) {

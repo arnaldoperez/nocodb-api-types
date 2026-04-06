@@ -1,7 +1,9 @@
 import { Column, Table } from './api';
 
 export const mapNocoTypeToTsType = (column: Column, tableInterfaceMap?: Map<string, string>): string => {
-  switch (column.uidt) {
+  // v3 uses 'type', v2 uses 'uidt'
+  const fieldType = column.type || column.uidt;
+  switch (fieldType) {
     case 'SingleLineText':
     case 'LongText':
     case 'Email':
@@ -9,6 +11,9 @@ export const mapNocoTypeToTsType = (column: Column, tableInterfaceMap?: Map<stri
     case 'PhoneNumber':
     case 'SingleSelect':
     case 'MultiSelect':
+    case 'Barcode':
+    case 'QrCode':
+    case 'UUID':
       return 'string';
     case 'Number':
     case 'Decimal':
@@ -17,6 +22,8 @@ export const mapNocoTypeToTsType = (column: Column, tableInterfaceMap?: Map<stri
     case 'Percent':
     case 'Duration':
     case 'Year':
+    case 'AutoNumber':
+    case 'Count':
       return 'number';
     case 'Checkbox':
     case 'Boolean':
@@ -25,8 +32,10 @@ export const mapNocoTypeToTsType = (column: Column, tableInterfaceMap?: Map<stri
     case 'DateTime':
     case 'CreatedTime':
     case 'LastModifiedTime':
+    case 'Time':
       return 'string';
     case 'JSON':
+    case 'Links':
       return 'any[]';
     case 'Attachment':
       return 'Attachment[]';
@@ -38,7 +47,18 @@ export const mapNocoTypeToTsType = (column: Column, tableInterfaceMap?: Map<stri
     case 'Lookup':
     case 'Rollup':
     case 'Formula':
+    case 'Collaborator':
+    case 'User':
+    case 'CreatedBy':
+    case 'LastModifiedBy':
+    case 'Button':
+    case 'GeoData':
+    case 'Geometry':
+    case 'SpecificDBType':
+    case 'ForeignKey':
       return 'any';
+    case 'ID':
+      return 'string | number';
     default:
       return 'any';
   }
@@ -85,14 +105,14 @@ const sanitizeKey = (name: string): string => {
 };
 
 export const generateInterface = (table: Table, columns: Column[], interfaceName?: string, tableInterfaceMap?: Map<string, string>): string => {
-  const finalInterfaceName = interfaceName || sanitizeClassName(table.table_name);
+  const finalInterfaceName = interfaceName || sanitizeClassName(table.table_name || table.title);
   const lines = [`export interface ${finalInterfaceName} {`];
 
   const usedKeys = new Map<string, number>();
 
   for (const col of columns) {
     const tsType = mapNocoTypeToTsType(col, tableInterfaceMap);
-    let key = sanitizeKey(col.column_name || col.title);
+    let key = sanitizeKey(col.column_name || col.title || 'unnamed');
 
     // Handle duplicates
     if (usedKeys.has(key)) {
@@ -116,28 +136,22 @@ export const generateInterface = (table: Table, columns: Column[], interfaceName
 };
 
 export const generateLinkedFieldsEnum = (table: Table, columns: Column[], interfaceName?: string): string => {
-  const finalInterfaceName = interfaceName || sanitizeClassName(table.table_name);
+  const finalInterfaceName = interfaceName || sanitizeClassName(table.table_name || table.title);
   const enumName = `${finalInterfaceName}LinkedFields`;
 
-  const linkedColumns = columns.filter(c => c.uidt === 'LinkToAnotherRecord');
+  // v3 uses 'Links' or 'LinkToAnotherRecord' as type, v2 uses 'LinkToAnotherRecord' as uidt
+  const linkedColumns = columns.filter(c => {
+    const ft = c.type || c.uidt;
+    return ft === 'LinkToAnotherRecord' || ft === 'Links';
+  });
   if (linkedColumns.length === 0) return '';
 
   const lines = [`export enum ${enumName} {`];
   const usedKeys = new Map<string, number>();
 
   for (const col of linkedColumns) {
-    let key = sanitizeKey(col.title || col.column_name);
-    // Remove quotes if present for enum keys unless necessary (but sanitizeKey adds quotes if invalid identifier)
-    // Actually enum keys must be valid identifiers.
-    // Let's assume sanitizeClassName-ish strategy for keys if strictly needed, 
-    // but user probably wants readable names. 
-    // `sanitizeKey` might return "'My Field'". Enum key cannot be quoted string literal in TS? 
-    // Wait, TS Enum keys must be identifiers. String values can be anything.
-    // So we need a sanitizeEnumKey.
-
-    // For now, let's blindly use sanitizeClassName logic for keys to be safe identifiers
-    // and use col.id as value.
-    let enumKey = sanitizeClassName(col.title || col.column_name);
+    let key = sanitizeKey(col.title || col.column_name || 'unnamed');
+    let enumKey = sanitizeClassName(col.title || col.column_name || 'unnamed');
 
     if (usedKeys.has(enumKey)) {
       const count = usedKeys.get(enumKey)! + 1;
@@ -159,7 +173,6 @@ export const generateClientBase = (): string => {
 
 export interface NocoDBClientConfig {
   baseURL: string;
-  token?: string; // Deprecated: use xcToken or xcAuth
   xcToken?: string;
   xcAuth?: string;
   headers?: Record<string, string>;
@@ -175,69 +188,57 @@ export interface Attachment {
   signedUrl?: string;
 }
 
+export interface NocoDBRecord<T> {
+  id: string | number;
+  fields: T;
+}
+
 export interface ListResponse<T> {
-  list: T[];
-  pageInfo: {
-    totalRows: number;
-    page: number;
-    pageSize: number;
-    isFirstPage: boolean;
-    isLastPage: boolean;
-  };
+  records: NocoDBRecord<T>[];
+  next?: string | null;
+  prev?: string | null;
+  nestedNext?: string | null;
+  nestedPrev?: string | null;
 }
 
 export interface ListRecordParams {
     /**
-     * Allows you to specify the fields that you wish to include in your API response. 
-     * By default, all the fields are included in the response.
-     * Example: fields=field1,field2
+     * Specify fields to include in the API response. String representing stringified JSON array of field names or field ids.
      */
     fields?: string;
     /**
-     * Allows you to specify the fields by which you want to sort the records in your API response.
-     * Example: sort=field1,-field2
+     * Allows you to specify the fields by which you want to sort the records.
      */
     sort?: string;
     /**
-     * Enables you to define specific conditions for filtering records in your API response.
-     * Example: where=(field1,eq,value1)~and(field2,eq,value2)
+     * Conditions to filter records. Example: (field1,eq,value1)~and(field2,eq,value2)
      */
     where?: string;
     /**
-     * Enables you to control the pagination of your API response by specifying the number of records you want to skip.
+     * Controls pagination of the API response by specifying the page number.
      */
-    offset?: number;
+    page?: number;
     /**
-     * Enables you to set a limit on the number of records you want to retrieve in your API response.
+     * Sets a limit on the number of records returned.
      */
-    limit?: number;
+    pageSize?: number;
     /**
-     * View Identifier. Allows you to fetch records that are currently visible within a specific view.
+     * Controls pagination of nested (linked) records.
+     */
+    nestedPage?: number;
+    /**
+     * Fetches records visible within a specific view.
      */
     viewId?: string;
-    /**
-     * Nested relations to fetch
-     */
-    nested?: any;
 }
 
 export interface ListLinkedRecordParams {
-    /**
-     * Allows you to specify the fields that you wish to include from the linked records in your API response. 
-     * By default, only Primary Key and associated display value field is included.
-     * Example: fields=field1,field2
-     */
     fields?: string;
-    /**
-     * Allows you to specify the fields by which you want to sort linked records in your API response.
-     * Example: sort=field1,-field2
-     */
     sort?: string;
-    /**
-     * Enables you to define specific conditions for filtering linked records in your API response.
-     * Example: where=(field1,eq,value1)~and(field2,eq,value2)
-     */
     where?: string;
+    page?: number;
+    pageSize?: number;
+    nestedPage?: number;
 }
 
 export class Api {
@@ -245,11 +246,8 @@ export class Api {
 
   constructor(config: NocoDBClientConfig) {
     const headers: Record<string, string> = { ...config.headers };
-    if (config.token) headers['xc-token'] = config.token;
-    if (config.xcToken) headers['xc-token'] = config.xcToken;
-    if (config.xcAuth) {
-        headers['xc-auth'] = config.xcAuth;
-    }
+    if (config.xcToken) headers['xc-token'] = config.xcToken.trim();
+    if (config.xcAuth) headers['xc-auth'] = config.xcAuth.trim();
 
     this.client = axios.create({
       baseURL: config.baseURL,
@@ -258,74 +256,93 @@ export class Api {
   }
 }
 
-export class TableClient<T, L = string> {
+
+export class TableClient<T, L = string, F = string> {
   protected client: AxiosInstance;
+  protected projectId: string;
   protected tableId: string;
 
-  constructor(client: AxiosInstance, tableId: string) {
+  constructor(client: AxiosInstance, projectId: string, tableId: string) {
     this.client = client;
+    this.projectId = projectId;
     this.tableId = tableId;
   }
 
   async list(params?: ListRecordParams): Promise<ListResponse<T>> {
-    const response = await this.client.get<{ list: T[]; pageInfo: any } | T[]>(
-      \`/api/v2/tables/\${this.tableId}/records\`,
+    const response = await this.client.get<ListResponse<T>>(
+      \`/api/v3/data/\${this.projectId}/\${this.tableId}/records\`,
       { params }
     );
-    if (Array.isArray(response.data)) {
-        return {
-            list: response.data,
-            pageInfo: {
-                totalRows: response.data.length,
-                page: 1,
-                pageSize: response.data.length,
-                isFirstPage: true,
-                isLastPage: true
-            }
-        };
-    }
-    return response.data as ListResponse<T>;
+    return response.data;
   }
 
-  async get(id: string | number): Promise<T> {
-    const response = await this.client.get<T>(
-      \`/api/v2/tables/\${this.tableId}/records/\${id}\`
+  async get(id: string | number): Promise<NocoDBRecord<T>> {
+    const response = await this.client.get<NocoDBRecord<T>>(
+      \`/api/v3/data/\${this.projectId}/\${this.tableId}/records/\${id}\`
     );
     return response.data;
   }
 
-  async create(data: Partial<T>): Promise<T> {
-    const response = await this.client.post<T>(
-      \`/api/v2/tables/\${this.tableId}/records\`,
-      data
+  async create(data: Partial<T>): Promise<NocoDBRecord<T>> {
+    const response = await this.client.post<{ records: NocoDBRecord<T>[] }>(
+      \`/api/v3/data/\${this.projectId}/\${this.tableId}/records\`,
+      { fields: data }
     );
-    return response.data;
+    return response.data.records[0];
   }
 
-  async update(id: string | number, data: Partial<T>): Promise<T> {
-    const response = await this.client.patch<T>(
-      \`/api/v2/tables/\${this.tableId}/records\`,
-      {
-          Id: id,
-          ...data
-      }
+  async update(id: string | number, data: Partial<T>): Promise<NocoDBRecord<T>> {
+    const response = await this.client.patch<{ records: NocoDBRecord<T>[] }>(
+      \`/api/v3/data/\${this.projectId}/\${this.tableId}/records\`,
+      { id, fields: data }
     );
-    return response.data;
+    return response.data.records[0];
   }
 
   async delete(id: string | number): Promise<void> {
     await this.client.delete(
-      \`/api/v2/tables/\${this.tableId}/records\`,
+      \`/api/v3/data/\${this.projectId}/\${this.tableId}/records\`,
       {
-        data: [ { Id: id } ]
+        data: { id }
       }
     );
   }
 
-  async listLinkedRecords(recordId: string | number, linkFieldId: L, params?: ListLinkedRecordParams): Promise<any[]> {
-    const response = await this.client.get<any[]>(
-        \`/api/v2/tables/\${this.tableId}/links/\${linkFieldId as any}/records/\${recordId}\`,
+  async listLinkedRecords(recordId: string | number, linkFieldId: L, params?: ListLinkedRecordParams): Promise<ListResponse<any>> {
+    const response = await this.client.get<ListResponse<any>>(
+        \`/api/v3/data/\${this.projectId}/\${this.tableId}/links/\${linkFieldId as any}/\${recordId}\`,
         { params }
+    );
+    return response.data;
+  }
+
+  async linkRelation(recordId: string | number, linkFieldId: L, linkedRecordId: string | number): Promise<boolean> {
+    const response = await this.client.post<{ success: boolean }>(
+      \`/api/v3/data/\${this.projectId}/\${this.tableId}/links/\${linkFieldId as any}/\${recordId}\`,
+      { id: String(linkedRecordId) }
+    );
+    return response.data.success;
+  }
+
+  async unlinkRelation(recordId: string | number, linkFieldId: L, linkedRecordId: string | number): Promise<boolean> {
+    const response = await this.client.delete<{ success: boolean }>(
+      \`/api/v3/data/\${this.projectId}/\${this.tableId}/links/\${linkFieldId as any}/\${recordId}\`,
+      { data: { id: String(linkedRecordId) } }
+    );
+    return response.data.success;
+  }
+
+  async uploadAttachment(recordId: string | number, fieldId: F, fileBuffer: Buffer | string, filename: string, contentType: string): Promise<any> {
+    // Determine base64 encoding from buffer or string
+    let base64File = typeof fileBuffer === 'string' ? fileBuffer : fileBuffer.toString('base64');
+    
+    const response = await this.client.post<any>(
+      \`/api/v3/data/\${this.projectId}/\${this.tableId}/records/\${recordId}/fields/\${fieldId as any}/upload\`,
+      {
+        contentType,
+        file: base64File,
+        filename
+      }
     );
     return response.data;
   }
@@ -333,40 +350,39 @@ export class TableClient<T, L = string> {
 `;
 };
 
-export const generateProjectClient = (projectTitle: string, tables: { title: string; table_name: string; id: string; interfaceName: string; hasLinkedFieldsEnum?: boolean }[]): string => {
+export const generateProjectClient = (projectTitle: string, projectId: string, tables: { title: string; table_name: string; id: string; interfaceName: string; hasLinkedFieldsEnum?: boolean }[]): string => {
   const sanitizedProjectName = sanitizeClassName(projectTitle);
 
   const imports = tables.map(t => {
     if (t.hasLinkedFieldsEnum) {
-      return `import { ${t.interfaceName}, ${t.interfaceName}LinkedFields } from './${sanitizeFileName(projectTitle)}';`;
+      return `import { \${t.interfaceName}, \${t.interfaceName}LinkedFields } from './\${sanitizeFileName(projectTitle)}';`;
     }
-    return `import { ${t.interfaceName} } from './${sanitizeFileName(projectTitle)}';`;
+    return `import { \${t.interfaceName} } from './\${sanitizeFileName(projectTitle)}';`;
   }).join('\n');
 
   const tableProperties = tables.map(t => {
     const propertyName = sanitizeClassName(t.title);
     if (t.hasLinkedFieldsEnum) {
-      return `  public ${propertyName}: TableClient<${t.interfaceName}, ${t.interfaceName}LinkedFields>;`;
+      return `  public \${propertyName}: TableClient<\${t.interfaceName}, \${t.interfaceName}LinkedFields, string>;`;
     }
-    return `  public ${propertyName}: TableClient<${t.interfaceName}>;`;
+    return `  public \${propertyName}: TableClient<\${t.interfaceName}, string, string>;`;
   }).join('\n');
 
   const tableInitializations = tables.map(t => {
     const propertyName = sanitizeClassName(t.title);
-    return `    this.${propertyName} = new TableClient(this.client, '${t.id}');`;
+    return `    this.\${propertyName} = new TableClient(this.client, '\${projectId}', '\${t.id}');`;
   }).join('\n');
 
   return `import { Api, NocoDBClientConfig, TableClient } from './client-base';
-${imports}
+\${imports}
 
-export class ${sanitizedProjectName}Client extends Api {
-${tableProperties}
+export class \${sanitizedProjectName}Client extends Api {
+\${tableProperties}
 
   constructor(config: NocoDBClientConfig) {
     super(config);
-${tableInitializations}
+\${tableInitializations}
   }
 }
 `;
 };
-
