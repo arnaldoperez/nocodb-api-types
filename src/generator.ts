@@ -374,14 +374,14 @@ export const generateProjectClient = (projectTitle: string, projectId: string, t
   }).join('\n');
 
   return `import { Api, NocoDBClientConfig, TableClient } from './client-base';
-\${imports}
+${imports}
 
-export class \${sanitizedProjectName}Client extends Api {
-\${tableProperties}
+export class ${sanitizedProjectName}Client extends Api {
+${tableProperties}
 
   constructor(config: NocoDBClientConfig) {
     super(config);
-\${tableInitializations}
+${tableInitializations}
   }
 }
 `;
