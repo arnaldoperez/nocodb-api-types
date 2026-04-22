@@ -188,10 +188,20 @@ export interface Attachment {
   signedUrl?: string;
 }
 
-export interface NocoDBRecord<T> {
+interface RawRecord<T> {
   id: string | number;
   fields: T;
 }
+
+interface RawListResponse<T> {
+  records: RawRecord<T>[];
+  next?: string | null;
+  prev?: string | null;
+  nestedNext?: string | null;
+  nestedPrev?: string | null;
+}
+
+export type NocoDBRecord<T> = T & { id: string | number };
 
 export interface ListResponse<T> {
   records: NocoDBRecord<T>[];
@@ -268,35 +278,42 @@ export class TableClient<T, L = string, F = string> {
     this.tableId = tableId;
   }
 
+  private static flatten<T>(raw: RawRecord<T>): NocoDBRecord<T> {
+    return { ...(raw.fields as any), id: raw.id };
+  }
+
   async list(params?: ListRecordParams): Promise<ListResponse<T>> {
-    const response = await this.client.get<ListResponse<T>>(
+    const response = await this.client.get<RawListResponse<T>>(
       \`/api/v3/data/\${this.projectId}/\${this.tableId}/records\`,
       { params }
     );
-    return response.data;
+    return {
+      ...response.data,
+      records: response.data.records.map(r => TableClient.flatten<T>(r)),
+    };
   }
 
   async get(id: string | number): Promise<NocoDBRecord<T>> {
-    const response = await this.client.get<NocoDBRecord<T>>(
+    const response = await this.client.get<RawRecord<T>>(
       \`/api/v3/data/\${this.projectId}/\${this.tableId}/records/\${id}\`
     );
-    return response.data;
+    return TableClient.flatten<T>(response.data);
   }
 
   async create(data: Partial<T>): Promise<NocoDBRecord<T>> {
-    const response = await this.client.post<{ records: NocoDBRecord<T>[] }>(
+    const response = await this.client.post<{ records: RawRecord<T>[] }>(
       \`/api/v3/data/\${this.projectId}/\${this.tableId}/records\`,
       { fields: data }
     );
-    return response.data.records[0];
+    return TableClient.flatten<T>(response.data.records[0]);
   }
 
   async update(id: string | number, data: Partial<T>): Promise<NocoDBRecord<T>> {
-    const response = await this.client.patch<{ records: NocoDBRecord<T>[] }>(
+    const response = await this.client.patch<{ records: RawRecord<T>[] }>(
       \`/api/v3/data/\${this.projectId}/\${this.tableId}/records\`,
       { id, fields: data }
     );
-    return response.data.records[0];
+    return TableClient.flatten<T>(response.data.records[0]);
   }
 
   async delete(id: string | number): Promise<void> {
@@ -309,11 +326,14 @@ export class TableClient<T, L = string, F = string> {
   }
 
   async listLinkedRecords(recordId: string | number, linkFieldId: L, params?: ListLinkedRecordParams): Promise<ListResponse<any>> {
-    const response = await this.client.get<ListResponse<any>>(
+    const response = await this.client.get<RawListResponse<any>>(
         \`/api/v3/data/\${this.projectId}/\${this.tableId}/links/\${linkFieldId as any}/\${recordId}\`,
         { params }
     );
-    return response.data;
+    return {
+      ...response.data,
+      records: response.data.records.map(r => TableClient.flatten<any>(r)),
+    };
   }
 
   async linkRelation(recordId: string | number, linkFieldId: L, linkedRecordId: string | number): Promise<boolean> {
