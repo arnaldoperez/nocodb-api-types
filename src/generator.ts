@@ -355,22 +355,22 @@ export const generateProjectClient = (projectTitle: string, projectId: string, t
 
   const imports = tables.map(t => {
     if (t.hasLinkedFieldsEnum) {
-      return `import { \${t.interfaceName}, \${t.interfaceName}LinkedFields } from './\${sanitizeFileName(projectTitle)}';`;
+      return `import { ${t.interfaceName}, ${t.interfaceName}LinkedFields } from './${sanitizeFileName(projectTitle)}';`;
     }
-    return `import { \${t.interfaceName} } from './\${sanitizeFileName(projectTitle)}';`;
+    return `import { ${t.interfaceName} } from './${sanitizeFileName(projectTitle)}';`;
   }).join('\n');
 
   const tableProperties = tables.map(t => {
     const propertyName = sanitizeClassName(t.title);
     if (t.hasLinkedFieldsEnum) {
-      return `  public \${propertyName}: TableClient<\${t.interfaceName}, \${t.interfaceName}LinkedFields, string>;`;
+      return `  public ${propertyName}: TableClient<${t.interfaceName}, ${t.interfaceName}LinkedFields, string>;`;
     }
-    return `  public \${propertyName}: TableClient<\${t.interfaceName}, string, string>;`;
+    return `  public ${propertyName}: TableClient<${t.interfaceName}, string, string>;`;
   }).join('\n');
 
   const tableInitializations = tables.map(t => {
     const propertyName = sanitizeClassName(t.title);
-    return `    this.\${propertyName} = new TableClient(this.client, '\${projectId}', '\${t.id}');`;
+    return `    this.${propertyName} = new TableClient(this.client, '${projectId}', '${t.id}');`;
   }).join('\n');
 
   return `import { Api, NocoDBClientConfig, TableClient } from './client-base';
